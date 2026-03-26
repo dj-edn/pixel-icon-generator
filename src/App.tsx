@@ -26,7 +26,6 @@ export default function App() {
   const [opts, setOpts] = useState<ProcessOptions>(DEFAULT_OPTS)
   const [result, setResult] = useState<ProcessResult | null>(null)
   const [renderStyle, setRenderStyle] = useState<RenderStyle>('pixel')
-  const [asciiRamp, setAsciiRamp] = useState('')
   const [darkMode, setDarkMode] = useState(true)
   const [showExport, setShowExport] = useState(false)
   const [exportCopied, setExportCopied] = useState(false)
@@ -39,12 +38,10 @@ export default function App() {
 
   const exportRef = useRef<HTMLDivElement>(null)
 
-  // Apply theme to body
   useEffect(() => {
     document.body.className = darkMode ? '' : 'light-mode'
   }, [darkMode])
 
-  // Close export popover on outside click
   useEffect(() => {
     if (!showExport) return
     const handler = (e: MouseEvent) => {
@@ -63,7 +60,6 @@ export default function App() {
     }, 30)
   }, [])
 
-  // Load default image on mount
   useEffect(() => {
     const canvas = createDefaultImage()
     setSourceImage(canvas)
@@ -98,7 +94,7 @@ export default function App() {
   const handleExportCopy = async () => {
     if (!result) return
     try {
-      await copyToClipboard(result, renderStyle, 8, asciiRamp)
+      await copyToClipboard(result, renderStyle)
       setExportCopied(true)
       setTimeout(() => setExportCopied(false), 1500)
     } catch { /* ignore */ }
@@ -109,8 +105,13 @@ export default function App() {
     <div className="app-root">
       {/* Top bar */}
       <div className="topbar">
-        <button className="theme-swatch" onClick={handleDarkModeToggle} aria-label="toggle theme">
-          <span className="swatch-square" />
+        {/* Animated pill toggle switch */}
+        <button
+          className={`theme-toggle ${darkMode ? 'theme-toggle--dark' : 'theme-toggle--light'}`}
+          onClick={handleDarkModeToggle}
+          aria-label="toggle theme"
+        >
+          <span className="toggle-thumb" />
         </button>
 
         <div className="export-container" ref={exportRef}>
@@ -123,13 +124,13 @@ export default function App() {
           </button>
           {showExport && result && (
             <div className="export-popover">
-              <button onClick={() => { exportToPNG(result, 1, false, renderStyle, asciiRamp); setShowExport(false) }}>
+              <button onClick={() => { exportToPNG(result, 1, false, renderStyle); setShowExport(false) }}>
                 png
               </button>
-              <button onClick={() => { exportToSVG(result, false, renderStyle, asciiRamp); setShowExport(false) }}>
+              <button onClick={() => { exportToSVG(result, false, renderStyle); setShowExport(false) }}>
                 svg
               </button>
-              <button onClick={() => { exportToJPEG(result, false, renderStyle, asciiRamp); setShowExport(false) }}>
+              <button onClick={() => { exportToJPEG(result, false, renderStyle); setShowExport(false) }}>
                 jpg
               </button>
               <button onClick={handleExportCopy}>
@@ -140,22 +141,17 @@ export default function App() {
         </div>
       </div>
 
-      {/* Main layout */}
       <div className="layout-grid">
-        {/* Canvas — comes first in DOM for mobile (shows above controls) */}
         <div className="area-canvas">
-          <PixelCanvas result={result} style={renderStyle} asciiRamp={asciiRamp} />
+          <PixelCanvas result={result} style={renderStyle} />
         </div>
 
-        {/* Controls — style tabs + sliders + upload zone */}
         <div className="area-controls">
           <Controls
             opts={opts}
             style={renderStyle}
-            asciiRamp={asciiRamp}
             onChange={handleOptsChange}
             onStyleChange={setRenderStyle}
-            onAsciiRampChange={setAsciiRamp}
           />
           <DropZone onImage={handleImage} />
         </div>

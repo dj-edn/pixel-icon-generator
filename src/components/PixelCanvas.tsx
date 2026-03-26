@@ -1,20 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  ProcessResult,
-  RenderStyle,
-  renderToCanvas,
-  copyAsciiToClipboard,
-} from '../utils/dithering'
+import { useEffect, useRef } from 'react'
+import { ProcessResult, RenderStyle, renderToCanvas } from '../utils/dithering'
 
 interface PixelCanvasProps {
   result: ProcessResult | null
   style: RenderStyle
-  asciiRamp?: string
 }
 
-export function PixelCanvas({ result, style, asciiRamp }: PixelCanvasProps) {
+export function PixelCanvas({ result, style }: PixelCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -29,26 +22,18 @@ export function PixelCanvas({ result, style, asciiRamp }: PixelCanvasProps) {
       return
     }
 
-    renderToCanvas(result, canvas, 8, style, asciiRamp)
-  }, [result, style, asciiRamp])
+    renderToCanvas(result, canvas, 8, style)
+  }, [result, style])
 
-  const handleCopyAscii = async () => {
-    if (!result) return
-    try {
-      await copyAsciiToClipboard(result, asciiRamp)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch { /* ignore */ }
-  }
+  const aspectRatio = result ? `${result.width} / ${result.height}` : '1 / 1'
 
   return (
     <div className="canvas-wrap">
-      <canvas ref={canvasRef} className="output-canvas" />
-      {style === 'ascii' && result && (
-        <button className="ascii-copy-btn" onClick={handleCopyAscii}>
-          {copied ? 'copied!' : 'copy ascii'}
-        </button>
-      )}
+      <canvas
+        ref={canvasRef}
+        className="output-canvas"
+        style={{ aspectRatio }}
+      />
     </div>
   )
 }

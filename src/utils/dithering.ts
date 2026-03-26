@@ -15,7 +15,7 @@ export interface SubjectMask {
 
 export interface ProcessResult {
   pixels: Uint8Array       // 1D array, 0=black 255=white, length = width*height
-  rawLuminance: Float32Array // pre-threshold lum (after mask/contrast, before FS) — used by ascii mode
+  rawLuminance: Float32Array // pre-threshold lum — used by ascii mode
   width: number
   height: number
 }
@@ -29,17 +29,7 @@ function lumToChar(lum: number, ramp: string = DEFAULT_ASCII_RAMP): string {
   return ramp[idx]
 }
 
-function lumToCharCustom(lum: number, customRamp: string): string {
-  if (!customRamp) return lumToChar(lum, DEFAULT_ASCII_RAMP)
-  const clamped = Math.max(0, Math.min(255, lum))
-  const idx = Math.floor((clamped / 255) * (customRamp.length - 1))
-  return customRamp[idx]
-}
-
-export function getAsciiChar(lum: number, customRamp?: string): string {
-  if (customRamp && customRamp.length > 0) {
-    return lumToCharCustom(lum, customRamp)
-  }
+export function getAsciiChar(lum: number): string {
   return lumToChar(lum, DEFAULT_ASCII_RAMP)
 }
 
@@ -68,41 +58,62 @@ function luminance(r: number, g: number, b: number): number {
   return 0.299 * r + 0.587 * g + 0.114 * b
 }
 
+/** Compute grid dimensions that preserve the source aspect ratio.
+ *  The longest side equals gridSize. */
+function computeGrid(
+  natW: number,
+  natH: number,
+  gridSize: number
+): { gridW: number; gridH: number } {
+  if (natW >= natH) {
+    return {
+      gridW: gridSize,
+      gridH: Math.max(1, Math.round(gridSize * natH / natW)),
+    }
+  } else {
+    return {
+      gridW: Math.max(1, Math.round(gridSize * natW / natH)),
+      gridH: gridSize,
+    }
+  }
+}
+
 export function processImage(
   source: HTMLImageElement | HTMLCanvasElement,
   opts: ProcessOptions,
   mask?: SubjectMask | null
 ): ProcessResult {
   const { gridSize, threshold, ditherIntensity, invert } = opts
-  const size = gridSize
 
-  // Step 1: draw source into a small hidden canvas
+  // Get natural dimensions to preserve aspect ratio
+  const natW = source instanceof HTMLImageElement ? source.naturalWidth : source.width
+  const natH = source instanceof HTMLImageElement ? source.naturalHeight : source.height
+  const { gridW, gridH } = computeGrid(natW, natH, gridSize)
+
+  // Step 1: draw source into a small hidden canvas at the correct aspect ratio
   const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
+  canvas.width = gridW
+  canvas.height = gridH
   const ctx = canvas.getContext('2d')!
   ctx.imageSmoothingEnabled = false
-  ctx.drawImage(source, 0, 0, size, size)
+  ctx.drawImage(source, 0, 0, gridW, gridH)
 
-  const imageData = ctx.getImageData(0, 0, size, size)
+  const imageData = ctx.getImageData(0, 0, gridW, gridH)
   const data = imageData.data
+  const total = gridW * gridH
 
-  // Step 2: extract luminance into a float array
-  const lum = new Float32Array(size * size)
-  for (let i = 0; i < size * size; i++) {
-    const r = data[i * 4]
-    const g = data[i * 4 + 1]
-    const b = data[i * 4 + 2]
-    lum[i] = luminance(r, g, b)
+  // Step 2: extract luminance
+  const lum = new Float32Array(total)
+  for (let i = 0; i < total; i++) {
+    lum[i] = luminance(data[i * 4], data[i * 4 + 1], data[i * 4 + 2])
   }
 
   // Step 2b: apply subject mask if provided
   let scaledMask: Float32Array | null = null
   if (mask) {
-    scaledMask = scaleMask(mask, size, size)
-    for (let i = 0; i < size * size; i++) {
-      const fg = scaledMask[i]
-      if (fg < 0.5) {
+    scaledMask = scaleMask(mask, gridW, gridH)
+    for (let i = 0; i < total; i++) {
+      if (scaledMask[i] < 0.5) {
         lum[i] = 0
       } else {
         lum[i] = boostContrast(lum[i])
@@ -110,10 +121,10 @@ export function processImage(
     }
   }
 
-  // Snapshot rawLuminance BEFORE dithering loop (used by ascii render mode)
+  // Snapshot rawLuminance BEFORE dithering (used by ascii render mode)
   const rawLuminance = new Float32Array(lum)
   if (invert) {
-    for (let i = 0; i < size * size; i++) {
+    for (let i = 0; i < total; i++) {
       rawLuminance[i] = 255 - rawLuminance[i]
     }
   }
@@ -121,9 +132,9 @@ export function processImage(
   // Step 3: Floyd-Steinberg dithering
   const intensity = ditherIntensity / 100
 
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const idx = y * size + x
+  for (let y = 0; y < gridH; y++) {
+    for (let x = 0; x < gridW; x++) {
+      const idx = y * gridW + x
       const isBg = scaledMask && scaledMask[idx] < 0.5
 
       const oldVal = lum[idx]
@@ -133,23 +144,23 @@ export function processImage(
       lum[idx] = newVal
 
       if (!isBg) {
-        if (x + 1 < size)                lum[idx + 1]          += error * (7 / 16)
-        if (x - 1 >= 0 && y + 1 < size)  lum[idx + size - 1]  += error * (3 / 16)
-        if (y + 1 < size)                lum[idx + size]        += error * (5 / 16)
-        if (x + 1 < size && y + 1 < size) lum[idx + size + 1]  += error * (1 / 16)
+        if (x + 1 < gridW)                  lum[idx + 1]              += error * (7 / 16)
+        if (x - 1 >= 0 && y + 1 < gridH)    lum[idx + gridW - 1]      += error * (3 / 16)
+        if (y + 1 < gridH)                   lum[idx + gridW]           += error * (5 / 16)
+        if (x + 1 < gridW && y + 1 < gridH) lum[idx + gridW + 1]      += error * (1 / 16)
       }
     }
   }
 
-  // Step 4: threshold the diffused luminance to strict 1-bit
-  const pixels = new Uint8Array(size * size)
-  for (let i = 0; i < size * size; i++) {
+  // Step 4: threshold to strict 1-bit
+  const pixels = new Uint8Array(total)
+  for (let i = 0; i < total; i++) {
     let val = lum[i] >= 128 ? 255 : 0
     if (invert) val = val === 0 ? 255 : 0
     pixels[i] = val
   }
 
-  return { pixels, rawLuminance, width: size, height: size }
+  return { pixels, rawLuminance, width: gridW, height: gridH }
 }
 
 /** Build a ProcessResult directly from a 2D 0/1 grid */
@@ -170,35 +181,39 @@ export function gridToResult(grid: number[][]): ProcessResult {
 
 const DISPLAY_SIZE = 512
 
+/** Scale canvas to DISPLAY_SIZE on the longest side, preserving aspect ratio. */
+function displayDimensions(width: number, height: number): { cw: number; ch: number; zoom: number } {
+  const scale = DISPLAY_SIZE / Math.max(width, height)
+  return {
+    cw: Math.round(width * scale),
+    ch: Math.round(height * scale),
+    zoom: scale,
+  }
+}
+
 export function renderToCanvas(
   result: ProcessResult,
   canvas: HTMLCanvasElement,
   _zoom: number,
   style: RenderStyle = 'pixel',
-  asciiRamp?: string
 ): void {
   const { pixels, rawLuminance, width, height } = result
+  const { cw, ch, zoom } = displayDimensions(width, height)
 
-  // Always render at exactly DISPLAY_SIZE x DISPLAY_SIZE on screen
-  canvas.width = DISPLAY_SIZE
-  canvas.height = DISPLAY_SIZE
-  // CSS size is set on the element, not here
-  const zoom = DISPLAY_SIZE / width
+  canvas.width = cw
+  canvas.height = ch
 
   const ctx = canvas.getContext('2d')!
   ctx.imageSmoothingEnabled = false
 
   // Black background always
   ctx.fillStyle = '#000000'
-  ctx.fillRect(0, 0, DISPLAY_SIZE, DISPLAY_SIZE)
-
-  const ramp = (asciiRamp && asciiRamp.length > 0) ? asciiRamp : DEFAULT_ASCII_RAMP
+  ctx.fillRect(0, 0, cw, ch)
 
   if (style === 'pixel') {
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const val = pixels[y * width + x]
-        if (val === 255) {
+        if (pixels[y * width + x] === 255) {
           ctx.fillStyle = '#ffffff'
           ctx.fillRect(Math.floor(x * zoom), Math.floor(y * zoom), Math.ceil(zoom), Math.ceil(zoom))
         }
@@ -220,11 +235,9 @@ export function renderToCanvas(
     ctx.fillStyle = '#ffffff'
     ctx.font = `${zoom}px "Courier New", monospace`
     ctx.textBaseline = 'top'
-    const lum = rawLuminance
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const char = getAsciiChar(lum[y * width + x], ramp)
-        ctx.fillText(char, x * zoom, y * zoom)
+        ctx.fillText(getAsciiChar(rawLuminance[y * width + x]), x * zoom, y * zoom)
       }
     }
   }
@@ -236,50 +249,49 @@ export function renderGridOverlay(
   height: number,
   _zoom: number
 ): void {
-  const zoom = DISPLAY_SIZE / width
+  const { cw, ch, zoom } = displayDimensions(width, height)
   const ctx = canvas.getContext('2d')!
   ctx.strokeStyle = 'rgba(255,255,255,0.08)'
   ctx.lineWidth = 0.5
 
   for (let x = 0; x <= width; x++) {
-    ctx.beginPath()
-    ctx.moveTo(x * zoom, 0)
-    ctx.lineTo(x * zoom, DISPLAY_SIZE)
-    ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(x * zoom, 0); ctx.lineTo(x * zoom, ch); ctx.stroke()
   }
   for (let y = 0; y <= height; y++) {
-    ctx.beginPath()
-    ctx.moveTo(0, y * zoom)
-    ctx.lineTo(DISPLAY_SIZE, y * zoom)
-    ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(0, y * zoom); ctx.lineTo(cw, y * zoom); ctx.stroke()
   }
 }
 
-// Export size is always 350x350
+// Export: longest side = 350px, aspect ratio preserved
 const EXPORT_SIZE = 350
 
-export function exportToPNG(
+function exportDimensions(width: number, height: number): { ew: number; eh: number; zoom: number } {
+  const scale = EXPORT_SIZE / Math.max(width, height)
+  return {
+    ew: Math.round(width * scale),
+    eh: Math.round(height * scale),
+    zoom: scale,
+  }
+}
+
+function renderToExportCanvas(
   result: ProcessResult,
-  _scale: 1 | 2 | 4,
   transparent: boolean,
-  style: RenderStyle = 'pixel',
-  asciiRamp?: string
-): void {
+  style: RenderStyle,
+): HTMLCanvasElement {
   const { pixels, rawLuminance, width, height } = result
+  const { ew, eh, zoom } = exportDimensions(width, height)
 
   const canvas = document.createElement('canvas')
-  canvas.width = EXPORT_SIZE
-  canvas.height = EXPORT_SIZE
+  canvas.width = ew
+  canvas.height = eh
   const ctx = canvas.getContext('2d')!
   ctx.imageSmoothingEnabled = false
 
   if (!transparent) {
     ctx.fillStyle = '#000000'
-    ctx.fillRect(0, 0, EXPORT_SIZE, EXPORT_SIZE)
+    ctx.fillRect(0, 0, ew, eh)
   }
-
-  const zoom = EXPORT_SIZE / width
-  const ramp = (asciiRamp && asciiRamp.length > 0) ? asciiRamp : DEFAULT_ASCII_RAMP
 
   if (style === 'pixel') {
     for (let y = 0; y < height; y++) {
@@ -301,74 +313,6 @@ export function exportToPNG(
       for (let x = 0; x < width; x++) {
         if (pixels[y * width + x] === 255) {
           ctx.beginPath()
-          ctx.arc(
-            x * zoom + zoom / 2,
-            y * zoom + zoom / 2,
-            radius,
-            0,
-            Math.PI * 2
-          )
-          ctx.fill()
-        }
-      }
-    }
-  } else if (style === 'ascii') {
-    ctx.fillStyle = '#ffffff'
-    ctx.font = `${zoom}px "Courier New", monospace`
-    ctx.textBaseline = 'top'
-    const lum = rawLuminance
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const char = getAsciiChar(lum[y * width + x], ramp)
-        ctx.fillText(char, x * zoom, y * zoom)
-      }
-    }
-  }
-
-  const link = document.createElement('a')
-  link.download = `pixel-icon-${EXPORT_SIZE}x${EXPORT_SIZE}.png`
-  link.href = canvas.toDataURL('image/png')
-  link.click()
-}
-
-export function exportToJPEG(
-  result: ProcessResult,
-  _transparent: boolean,
-  style: RenderStyle = 'pixel',
-  asciiRamp?: string
-): void {
-  const { pixels, rawLuminance, width, height } = result
-
-  const canvas = document.createElement('canvas')
-  canvas.width = EXPORT_SIZE
-  canvas.height = EXPORT_SIZE
-  const ctx = canvas.getContext('2d')!
-  ctx.imageSmoothingEnabled = false
-
-  // JPEG always black background
-  ctx.fillStyle = '#000000'
-  ctx.fillRect(0, 0, EXPORT_SIZE, EXPORT_SIZE)
-
-  const zoom = EXPORT_SIZE / width
-  const ramp = (asciiRamp && asciiRamp.length > 0) ? asciiRamp : DEFAULT_ASCII_RAMP
-
-  if (style === 'pixel') {
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const val = pixels[y * width + x]
-        if (val === 255) {
-          ctx.fillStyle = '#ffffff'
-          ctx.fillRect(Math.floor(x * zoom), Math.floor(y * zoom), Math.ceil(zoom), Math.ceil(zoom))
-        }
-      }
-    }
-  } else if (style === 'dot') {
-    const radius = (zoom * 0.85) / 2
-    ctx.fillStyle = '#ffffff'
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        if (pixels[y * width + x] === 255) {
-          ctx.beginPath()
           ctx.arc(x * zoom + zoom / 2, y * zoom + zoom / 2, radius, 0, Math.PI * 2)
           ctx.fill()
         }
@@ -378,17 +322,37 @@ export function exportToJPEG(
     ctx.fillStyle = '#ffffff'
     ctx.font = `${zoom}px "Courier New", monospace`
     ctx.textBaseline = 'top'
-    const lum = rawLuminance
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const char = getAsciiChar(lum[y * width + x], ramp)
-        ctx.fillText(char, x * zoom, y * zoom)
+        ctx.fillText(getAsciiChar(rawLuminance[y * width + x]), x * zoom, y * zoom)
       }
     }
   }
 
+  return canvas
+}
+
+export function exportToPNG(
+  result: ProcessResult,
+  _scale: 1 | 2 | 4,
+  transparent: boolean,
+  style: RenderStyle = 'pixel',
+): void {
+  const canvas = renderToExportCanvas(result, transparent, style)
   const link = document.createElement('a')
-  link.download = `pixel-icon-${EXPORT_SIZE}x${EXPORT_SIZE}.jpg`
+  link.download = `pixel-icon.png`
+  link.href = canvas.toDataURL('image/png')
+  link.click()
+}
+
+export function exportToJPEG(
+  result: ProcessResult,
+  _transparent: boolean,
+  style: RenderStyle = 'pixel',
+): void {
+  const canvas = renderToExportCanvas(result, false, style)
+  const link = document.createElement('a')
+  link.download = `pixel-icon.jpg`
   link.href = canvas.toDataURL('image/jpeg', 0.95)
   link.click()
 }
@@ -397,89 +361,69 @@ export function exportToSVG(
   result: ProcessResult,
   transparent: boolean,
   style: RenderStyle = 'pixel',
-  asciiRamp?: string
 ): void {
   const { pixels, rawLuminance, width, height } = result
-  const vw = EXPORT_SIZE
-  const vh = EXPORT_SIZE
-  const ramp = (asciiRamp && asciiRamp.length > 0) ? asciiRamp : DEFAULT_ASCII_RAMP
+  const { ew, eh } = exportDimensions(width, height)
+  const vw = ew
+  const vh = eh
 
   if (style === 'ascii') {
-    const cell = EXPORT_SIZE / width
+    const cellW = ew / width
+    const cellH = eh / height
     const lines: string[] = []
-
-    if (!transparent) {
-      lines.push(`<rect width="${vw}" height="${vh}" fill="#000000"/>`)
-    }
-
-    const lum = rawLuminance
+    if (!transparent) lines.push(`<rect width="${vw}" height="${vh}" fill="#000000"/>`)
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const char = getAsciiChar(lum[y * width + x], ramp)
-        // escape XML special chars
+        const char = getAsciiChar(rawLuminance[y * width + x])
         const safe = char === '&' ? '&amp;' : char === '<' ? '&lt;' : char === '>' ? '&gt;' : char
         lines.push(
-          `<text x="${x * cell}" y="${y * cell}" font-size="${cell}" font-family="Courier New, monospace" fill="#ffffff" dominant-baseline="hanging">${safe}</text>`
+          `<text x="${x * cellW}" y="${y * cellH}" font-size="${cellH}" font-family="Courier New, monospace" fill="#ffffff" dominant-baseline="hanging">${safe}</text>`
         )
       }
     }
-
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vw} ${vh}">
-${lines.join('\n')}
-</svg>`
-    _downloadSVG(svg)
+    _downloadSVG(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vw} ${vh}">\n${lines.join('\n')}\n</svg>`)
     return
   }
 
   if (style === 'dot') {
-    const cell = EXPORT_SIZE / width
+    const cellW = ew / width
+    const cellH = eh / height
     const parts: string[] = []
-    if (!transparent) {
-      parts.push(`<rect width="${vw}" height="${vh}" fill="#000000"/>`)
-    }
+    if (!transparent) parts.push(`<rect width="${vw}" height="${vh}" fill="#000000"/>`)
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         if (pixels[y * width + x] === 255) {
-          const cx = (x + 0.5) * cell
-          const cy = (y + 0.5) * cell
-          const r = cell * 0.425
-          parts.push(
-            `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffffff"/>`
-          )
+          const cx = (x + 0.5) * cellW
+          const cy = (y + 0.5) * cellH
+          const r = Math.min(cellW, cellH) * 0.425
+          parts.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffffff"/>`)
         }
       }
     }
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vw} ${vh}">
-${parts.join('\n')}
-</svg>`
-    _downloadSVG(svg)
+    _downloadSVG(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vw} ${vh}">\n${parts.join('\n')}\n</svg>`)
     return
   }
 
-  // Default: pixel mode
-  const cell = EXPORT_SIZE / width
+  // pixel mode
+  const cellW = ew / width
+  const cellH = eh / height
   const rects: string[] = []
-  if (!transparent) {
-    rects.push(`<rect width="${vw}" height="${vh}" fill="#000000"/>`)
-  }
+  if (!transparent) rects.push(`<rect width="${vw}" height="${vh}" fill="#000000"/>`)
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       if (pixels[y * width + x] === 255) {
-        rects.push(`<rect x="${x * cell}" y="${y * cell}" width="${cell}" height="${cell}" fill="#ffffff"/>`)
+        rects.push(`<rect x="${x * cellW}" y="${y * cellH}" width="${cellW}" height="${cellH}" fill="#ffffff"/>`)
       }
     }
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vw} ${vh}" shape-rendering="crispEdges">
-${rects.join('\n')}
-</svg>`
-  _downloadSVG(svg)
+  _downloadSVG(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vw} ${vh}" shape-rendering="crispEdges">\n${rects.join('\n')}\n</svg>`)
 }
 
 function _downloadSVG(svg: string): void {
   const blob = new Blob([svg], { type: 'image/svg+xml' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
-  link.download = `pixel-icon-${EXPORT_SIZE}x${EXPORT_SIZE}.svg`
+  link.download = `pixel-icon.svg`
   link.href = url
   link.click()
   URL.revokeObjectURL(url)
@@ -489,10 +433,9 @@ export function copyToClipboard(
   result: ProcessResult,
   style: RenderStyle = 'pixel',
   _zoom = 8,
-  asciiRamp?: string
 ): Promise<void> {
   const canvas = document.createElement('canvas')
-  renderToCanvas(result, canvas, _zoom, style, asciiRamp)
+  renderToCanvas(result, canvas, _zoom, style)
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -505,23 +448,6 @@ export function copyToClipboard(
   })
 }
 
-export function copyAsciiToClipboard(
-  result: ProcessResult,
-  asciiRamp?: string
-): Promise<void> {
-  const { rawLuminance, width, height } = result
-  const ramp = (asciiRamp && asciiRamp.length > 0) ? asciiRamp : DEFAULT_ASCII_RAMP
-  const rows: string[] = []
-  for (let y = 0; y < height; y++) {
-    let row = ''
-    for (let x = 0; x < width; x++) {
-      row += getAsciiChar(rawLuminance[y * width + x], ramp)
-    }
-    rows.push(row)
-  }
-  return navigator.clipboard.writeText(rows.join('\n'))
-}
-
 /** Create a default placeholder image using canvas drawing */
 export function createDefaultImage(): HTMLCanvasElement {
   const size = 256
@@ -530,14 +456,11 @@ export function createDefaultImage(): HTMLCanvasElement {
   canvas.height = size
   const ctx = canvas.getContext('2d')!
 
-  // Black background
   ctx.fillStyle = '#000000'
   ctx.fillRect(0, 0, size, size)
 
   const cx = size / 2
   const cy = size / 2
-
-  // Concentric rings
   const rings = [
     { r: 100, w: 18 },
     { r: 72, w: 14 },
@@ -551,8 +474,6 @@ export function createDefaultImage(): HTMLCanvasElement {
     ctx.arc(cx, cy, ring.r, 0, Math.PI * 2)
     ctx.stroke()
   }
-
-  // Center dot
   ctx.fillStyle = '#ffffff'
   ctx.beginPath()
   ctx.arc(cx, cy, 10, 0, Math.PI * 2)

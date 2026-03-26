@@ -11,20 +11,11 @@ const STYLE_ICONS: Record<RenderStyle, { char: string; color: string }> = {
 interface ControlsProps {
   opts: ProcessOptions
   style: RenderStyle
-  asciiRamp: string
   onChange: (opts: ProcessOptions) => void
   onStyleChange: (s: RenderStyle) => void
-  onAsciiRampChange: (s: string) => void
 }
 
-export function Controls({
-  opts,
-  style,
-  asciiRamp,
-  onChange,
-  onStyleChange,
-  onAsciiRampChange,
-}: ControlsProps) {
+export function Controls({ opts, style, onChange, onStyleChange }: ControlsProps) {
   const set = <K extends keyof ProcessOptions>(key: K, val: ProcessOptions[K]) =>
     onChange({ ...opts, [key]: val })
 
@@ -50,7 +41,6 @@ export function Controls({
 
       {/* Sliders */}
       <div className="sliders-section">
-        {/* Density = grid size */}
         <div className="slider-row">
           <div className="slider-header">
             <span className="slider-label">Density</span>
@@ -67,7 +57,6 @@ export function Controls({
           />
         </div>
 
-        {/* Threshold */}
         <div className="slider-row">
           <div className="slider-header">
             <span className="slider-label">Threshold</span>
@@ -83,7 +72,6 @@ export function Controls({
           />
         </div>
 
-        {/* Dither */}
         <div className="slider-row">
           <div className="slider-header">
             <span className="slider-label">Dither</span>
@@ -98,23 +86,6 @@ export function Controls({
             className="h-slider"
           />
         </div>
-
-        {/* ASCII custom ramp — visible in ascii mode only */}
-        {style === 'ascii' && (
-          <div className="slider-row">
-            <div className="slider-header">
-              <span className="slider-label">Chars</span>
-            </div>
-            <input
-              type="text"
-              value={asciiRamp}
-              placeholder="default ramp"
-              onChange={(e) => onAsciiRampChange(e.target.value)}
-              className="ascii-input"
-              spellCheck={false}
-            />
-          </div>
-        )}
       </div>
     </div>
   )

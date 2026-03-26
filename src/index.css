@@ -53,30 +53,39 @@ body {
   padding: 0.75rem 1rem;
 }
 
-/* Theme swatch button */
-.theme-swatch {
-  width: 40px;
+/* Animated pill toggle switch */
+.theme-toggle {
+  width: 52px;
   height: 28px;
+  border-radius: 999px;
   border: 1px solid var(--border-strong);
-  background: transparent;
+  background: var(--bg);
+  cursor: pointer;
+  padding: 3px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border-radius: 0;
-  transition: border-color 0.1s;
+  transition: background 0.2s, border-color 0.2s;
+  position: relative;
 }
 
-.theme-swatch:hover {
+.theme-toggle:hover {
   border-color: var(--fg);
 }
 
-.swatch-square {
-  width: 10px;
-  height: 10px;
+.toggle-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
   background: var(--fg);
   display: block;
   flex-shrink: 0;
+  transition: transform 0.2s ease;
+  transform: translateX(0);
+}
+
+/* Light mode: thumb slides right */
+.theme-toggle--light .toggle-thumb {
+  transform: translateX(24px);
 }
 
 /* Export button */
@@ -165,9 +174,10 @@ body {
 .output-canvas {
   display: block;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  height: auto;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  /* aspect-ratio is set inline from result.width / result.height */
 }
 
 .ascii-copy-btn {
@@ -413,12 +423,14 @@ canvas {
   .area-canvas   { grid-area: canvas; order: unset; }
   .area-controls { grid-area: controls; order: unset; }
 
-  /* Desktop canvas: fixed 512×512 */
+  /* Desktop canvas: longest side = 512px */
   .output-canvas {
-    width: 512px;
-    height: 512px;
-    aspect-ratio: unset;
+    width: auto;
+    height: auto;
+    max-width: 512px;
+    max-height: 512px;
     border: 1px solid var(--border);
+    /* aspect-ratio set inline; max constraints handle both portrait and landscape */
   }
 
   /* Drop zone on desktop */
