@@ -88,6 +88,58 @@ body {
   transform: translateX(24px);
 }
 
+/* Mic button */
+.mic-btn {
+  width: 40px;
+  height: 28px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.1s, background 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+
+.mic-btn:hover {
+  border-color: var(--fg);
+}
+
+.mic-btn--active {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.25); }
+  50%       { box-shadow: 0 0 0 4px rgba(255,255,255,0); }
+}
+
+body.light-mode .mic-btn--active {
+  animation: mic-pulse-light 1.4s ease-in-out infinite;
+}
+
+@keyframes mic-pulse-light {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,0,0,0.2); }
+  50%       { box-shadow: 0 0 0 4px rgba(0,0,0,0); }
+}
+
+.mic-error {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--fg-dim);
+  letter-spacing: 0.04em;
+  text-align: center;
+  margin: 0;
+  padding: 0.3rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
 /* Export button */
 .export-container {
   position: relative;

@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import orchidSrc from './assets/orchid.jpg'
 import {
   ProcessOptions,
   ProcessResult,
   RenderStyle,
   processImage,
-  createDefaultImage,
   exportToPNG,
   exportToSVG,
   exportToJPEG,
@@ -13,9 +13,10 @@ import {
 import { DropZone } from './components/DropZone'
 import { PixelCanvas } from './components/PixelCanvas'
 import { Controls } from './components/Controls'
+import { useMic } from './hooks/useMic'
 
 const DEFAULT_OPTS: ProcessOptions = {
-  gridSize: 32,
+  gridSize: 128,
   threshold: 128,
   ditherIntensity: 100,
   invert: false,
@@ -37,6 +38,8 @@ export default function App() {
   darkModeRef.current = darkMode
 
   const exportRef = useRef<HTMLDivElement>(null)
+
+  const { micActive, micError, analyserRef, toggleMic } = useMic()
 
   useEffect(() => {
     document.body.className = darkMode ? '' : 'light-mode'
@@ -61,9 +64,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    const canvas = createDefaultImage()
-    setSourceImage(canvas)
-    setResult(processImage(canvas, { ...DEFAULT_OPTS, invert: false }))
+    const img = new Image()
+    img.onload = () => {
+      setSourceImage(img)
+      setResult(processImage(img, { ...DEFAULT_OPTS, invert: false }))
+    }
+    img.src = orchidSrc
   }, [])
 
   const handleImage = useCallback(
@@ -114,6 +120,21 @@ export default function App() {
           <span className="toggle-thumb" />
         </button>
 
+        {/* Mic button */}
+        <button
+          className={`mic-btn ${micActive ? 'mic-btn--active' : ''}`}
+          onClick={toggleMic}
+          aria-label={micActive ? 'stop microphone' : 'start microphone'}
+          title={micActive ? 'stop mic' : 'mic reactivity'}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="5.25" y="1.25" width="5.5" height="7.5" rx="2.75" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M2.5 8C2.5 11.0376 5.13401 13.5 8 13.5C10.866 13.5 13.5 11.0376 13.5 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <line x1="8" y1="13.5" x2="8" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            <line x1="5.5" y1="15" x2="10.5" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+
         <div className="export-container" ref={exportRef}>
           <button
             className={`export-btn ${!result ? 'export-btn--disabled' : ''}`}
@@ -141,9 +162,19 @@ export default function App() {
         </div>
       </div>
 
+      {/* Mic error message */}
+      {micError && (
+        <p className="mic-error">mic access denied</p>
+      )}
+
       <div className="layout-grid">
         <div className="area-canvas">
-          <PixelCanvas result={result} style={renderStyle} />
+          <PixelCanvas
+            result={result}
+            style={renderStyle}
+            micActive={micActive}
+            analyserRef={analyserRef}
+          />
         </div>
 
         <div className="area-controls">

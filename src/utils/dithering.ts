@@ -243,6 +243,86 @@ export function renderToCanvas(
   }
 }
 
+/** Render with live audio distortion — called every animation frame when mic is active.
+ *  thresholdShift: 0–60 (extra luminance needed to show a pixel → dissolve)
+ *  jitterPx: 0–4 (max horizontal row offset in display pixels for scanline tear)
+ */
+export function renderToCanvasWithAudio(
+  result: ProcessResult,
+  canvas: HTMLCanvasElement,
+  _zoom: number,
+  style: RenderStyle,
+  thresholdShift: number,
+  jitterPx: number,
+): void {
+  const { rawLuminance, width, height } = result
+  const { cw, ch, zoom } = displayDimensions(width, height)
+
+  canvas.width = cw
+  canvas.height = ch
+
+  const ctx = canvas.getContext('2d')!
+  ctx.imageSmoothingEnabled = false
+  ctx.fillStyle = '#000000'
+  ctx.fillRect(0, 0, cw, ch)
+
+  // Dynamic threshold: as amplitude rises, pixels with rawLuminance < threshold drop out
+  const dynThreshold = 128 + thresholdShift
+
+  // Jitter probability per row (scales with jitterPx, max ~40% of rows at full amplitude)
+  const jitterChance = jitterPx / 10
+
+  if (style === 'pixel') {
+    ctx.fillStyle = '#ffffff'
+    for (let y = 0; y < height; y++) {
+      const jOff = jitterPx > 0 && Math.random() < jitterChance
+        ? Math.round((Math.random() * 2 - 1) * jitterPx)
+        : 0
+      for (let x = 0; x < width; x++) {
+        if (rawLuminance[y * width + x] >= dynThreshold) {
+          ctx.fillRect(
+            Math.floor(x * zoom) + jOff,
+            Math.floor(y * zoom),
+            Math.ceil(zoom),
+            Math.ceil(zoom),
+          )
+        }
+      }
+    }
+  } else if (style === 'dot') {
+    const radius = (zoom * 0.85) / 2
+    ctx.fillStyle = '#ffffff'
+    for (let y = 0; y < height; y++) {
+      const jOff = jitterPx > 0 && Math.random() < jitterChance
+        ? Math.round((Math.random() * 2 - 1) * jitterPx)
+        : 0
+      for (let x = 0; x < width; x++) {
+        if (rawLuminance[y * width + x] >= dynThreshold) {
+          ctx.beginPath()
+          ctx.arc(x * zoom + zoom / 2 + jOff, y * zoom + zoom / 2, radius, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+    }
+  } else {
+    // ascii
+    ctx.fillStyle = '#ffffff'
+    ctx.font = `${zoom}px "Courier New", monospace`
+    ctx.textBaseline = 'top'
+    for (let y = 0; y < height; y++) {
+      const jOff = jitterPx > 0 && Math.random() < jitterChance
+        ? Math.round((Math.random() * 2 - 1) * jitterPx)
+        : 0
+      for (let x = 0; x < width; x++) {
+        const lum = rawLuminance[y * width + x]
+        if (lum >= dynThreshold) {
+          ctx.fillText(getAsciiChar(lum), x * zoom + jOff, y * zoom)
+        }
+      }
+    }
+  }
+}
+
 export function renderGridOverlay(
   canvas: HTMLCanvasElement,
   width: number,
