@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/vite-env.d.ts","./src/components/controls.tsx","./src/components/dropzone.tsx","./src/components/exportbuttons.tsx","./src/components/generatetab.tsx","./src/components/pixelcanvas.tsx","./src/utils/claudeapi.ts","./src/utils/dithering.ts","./src/utils/segmentation.ts","./src/workers/segmentation.worker.ts"],"version":"6.0.2"}

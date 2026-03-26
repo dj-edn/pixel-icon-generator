@@ -1,0 +1,446 @@
+@import "tailwindcss";
+
+/* ── theme variables ─────────────────────────────────── */
+body {
+  --bg: #0d0d0d;
+  --fg: #ffffff;
+  --fg-dim: rgba(255,255,255,0.45);
+  --fg-muted: rgba(255,255,255,0.25);
+  --border: rgba(255,255,255,0.15);
+  --border-strong: rgba(255,255,255,0.4);
+  --accent-hover: rgba(255,255,255,0.06);
+}
+
+body.light-mode {
+  --bg: #efefef;
+  --fg: #111111;
+  --fg-dim: rgba(0,0,0,0.5);
+  --fg-muted: rgba(0,0,0,0.3);
+  --border: rgba(0,0,0,0.12);
+  --border-strong: rgba(0,0,0,0.35);
+  --accent-hover: rgba(0,0,0,0.05);
+}
+
+/* ── base reset ─────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Space Mono', 'IBM Plex Mono', monospace;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.15s, color 0.15s;
+}
+
+/* ── app root ────────────────────────────────────────── */
+.app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── top bar ─────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+}
+
+/* Theme swatch button */
+.theme-swatch {
+  width: 40px;
+  height: 28px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 0;
+  transition: border-color 0.1s;
+}
+
+.theme-swatch:hover {
+  border-color: var(--fg);
+}
+
+.swatch-square {
+  width: 10px;
+  height: 10px;
+  background: var(--fg);
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Export button */
+.export-container {
+  position: relative;
+}
+
+.export-btn {
+  width: 40px;
+  height: 28px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--fg);
+  font-family: 'Space Mono', monospace;
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.1s;
+  line-height: 1;
+}
+
+.export-btn:hover:not(.export-btn--disabled) {
+  border-color: var(--fg);
+}
+
+.export-btn--disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.export-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  min-width: 80px;
+}
+
+.export-popover button {
+  padding: 0.55rem 1rem;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  text-align: left;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  border-radius: 0;
+}
+
+.export-popover button:last-child {
+  border-bottom: none;
+}
+
+.export-popover button:hover {
+  background: var(--accent-hover);
+}
+
+/* ── mobile layout (default) ─────────────────────────── */
+.layout-grid {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* On mobile: canvas first, controls second */
+.area-canvas   { order: 1; }
+.area-controls { order: 2; }
+
+/* ── canvas ──────────────────────────────────────────── */
+.canvas-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.output-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.ascii-copy-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg-dim);
+  cursor: pointer;
+  border-radius: 0;
+  text-align: left;
+}
+
+.ascii-copy-btn:hover {
+  color: var(--fg);
+  background: var(--accent-hover);
+}
+
+/* ── style tabs ──────────────────────────────────────── */
+.style-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  padding: 0.65rem 0.5rem;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg-dim);
+  cursor: pointer;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: background 0.1s, color 0.1s;
+}
+
+.tab-btn:last-child {
+  border-right: none;
+}
+
+.tab-btn:hover {
+  color: var(--fg);
+  background: var(--accent-hover);
+}
+
+.tab-btn--active {
+  color: var(--fg);
+  background: var(--accent-hover);
+  border-bottom: 2px solid var(--fg);
+  margin-bottom: -1px;
+}
+
+.tab-icon {
+  font-size: 0.55rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ── sliders section ─────────────────────────────────── */
+.sliders-section {
+  display: flex;
+  flex-direction: column;
+  padding: 0 1rem;
+}
+
+.slider-row {
+  padding: 0.9rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.slider-row:last-child {
+  border-bottom: none;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.55rem;
+}
+
+.slider-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--fg-dim);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+
+.slider-value {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--fg);
+  letter-spacing: 0.04em;
+}
+
+/* Horizontal range slider */
+.h-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+  border-radius: 0;
+  display: block;
+}
+
+.h-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--fg);
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.h-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--fg);
+  border-radius: 0;
+  border: none;
+  cursor: pointer;
+}
+
+.h-slider:hover {
+  background: var(--border-strong);
+}
+
+/* ASCII char input */
+.ascii-input {
+  width: 100%;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  outline: none;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0;
+  margin-top: 0.3rem;
+  letter-spacing: 0.03em;
+}
+
+.ascii-input::placeholder {
+  color: var(--fg-muted);
+}
+
+.ascii-input:focus {
+  border-color: var(--border-strong);
+}
+
+/* ── drop zone ───────────────────────────────────────── */
+.drop-zone {
+  border: 1px dashed var(--border);
+  margin: 1rem;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 1.25rem;
+  transition: border-color 0.1s, background 0.1s;
+  border-radius: 0;
+}
+
+.drop-zone:hover,
+.drop-zone.dragging {
+  border-color: var(--border-strong);
+  background: var(--accent-hover);
+}
+
+.drop-zone-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.drop-zone-thumb {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.drop-zone-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+}
+
+/* ── controls panel ──────────────────────────────────── */
+.controls-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── pixelated rendering ─────────────────────────────── */
+canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
+
+/* ── desktop layout (> 640px) ────────────────────────── */
+@media (min-width: 641px) {
+  .app-root {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .topbar {
+    padding: 1.25rem 0;
+  }
+
+  .layout-grid {
+    display: grid;
+    grid-template-columns: 1fr 512px;
+    grid-template-areas: "controls canvas";
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  .area-canvas   { grid-area: canvas; order: unset; }
+  .area-controls { grid-area: controls; order: unset; }
+
+  /* Desktop canvas: fixed 512×512 */
+  .output-canvas {
+    width: 512px;
+    height: 512px;
+    aspect-ratio: unset;
+    border: 1px solid var(--border);
+  }
+
+  /* Drop zone on desktop */
+  .drop-zone {
+    margin: 0;
+    margin-top: 1rem;
+    min-height: 120px;
+  }
+
+  /* Style tabs full width on desktop */
+  .style-tabs {
+    border: 1px solid var(--border);
+    border-bottom: none;
+  }
+
+  .sliders-section {
+    border: 1px solid var(--border);
+    border-top: none;
+    padding: 0 1rem;
+  }
+
+  .slider-row:last-child {
+    border-bottom: none;
+  }
+}
