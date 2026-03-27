@@ -4,6 +4,8 @@ import {
   ProcessOptions,
   ProcessResult,
   RenderStyle,
+  AudioOpts,
+  DEFAULT_AUDIO_OPTS,
   processImage,
   exportToPNG,
   exportToSVG,
@@ -30,6 +32,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(true)
   const [showExport, setShowExport] = useState(false)
   const [exportCopied, setExportCopied] = useState(false)
+  const [audioOpts, setAudioOpts] = useState<AudioOpts>(DEFAULT_AUDIO_OPTS)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const optsRef = useRef(opts)
@@ -174,6 +177,7 @@ export default function App() {
             style={renderStyle}
             micActive={micActive}
             analyserRef={analyserRef}
+            audioOpts={audioOpts}
           />
         </div>
 
@@ -183,6 +187,9 @@ export default function App() {
             style={renderStyle}
             onChange={handleOptsChange}
             onStyleChange={setRenderStyle}
+            micActive={micActive}
+            audioOpts={audioOpts}
+            onAudioChange={setAudioOpts}
           />
           <DropZone onImage={handleImage} />
         </div>

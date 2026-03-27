@@ -1,4 +1,4 @@
-import { ProcessOptions, RenderStyle } from '../utils/dithering'
+import { ProcessOptions, RenderStyle, AudioOpts } from '../utils/dithering'
 
 const GRID_SIZES = [16, 32, 48, 64, 96, 128, 256] as const
 
@@ -13,11 +13,17 @@ interface ControlsProps {
   style: RenderStyle
   onChange: (opts: ProcessOptions) => void
   onStyleChange: (s: RenderStyle) => void
+  micActive: boolean
+  audioOpts: AudioOpts
+  onAudioChange: (opts: AudioOpts) => void
 }
 
-export function Controls({ opts, style, onChange, onStyleChange }: ControlsProps) {
+export function Controls({ opts, style, onChange, onStyleChange, micActive, audioOpts, onAudioChange }: ControlsProps) {
   const set = <K extends keyof ProcessOptions>(key: K, val: ProcessOptions[K]) =>
     onChange({ ...opts, [key]: val })
+
+  const setAudio = <K extends keyof AudioOpts>(key: K, val: AudioOpts[K]) =>
+    onAudioChange({ ...audioOpts, [key]: val })
 
   const gridIndex = GRID_SIZES.indexOf(opts.gridSize as typeof GRID_SIZES[number])
 
@@ -39,7 +45,7 @@ export function Controls({ opts, style, onChange, onStyleChange }: ControlsProps
         ))}
       </div>
 
-      {/* Sliders */}
+      {/* Main sliders */}
       <div className="sliders-section">
         <div className="slider-row">
           <div className="slider-header">
@@ -87,6 +93,63 @@ export function Controls({ opts, style, onChange, onStyleChange }: ControlsProps
           />
         </div>
       </div>
+
+      {/* Audio sliders — only visible when mic is on */}
+      {micActive && (
+        <div className="audio-sliders-section">
+          <div className="audio-section-label">audio</div>
+
+          <div className="slider-row">
+            <div className="slider-header">
+              <span className="slider-label">threshold</span>
+              <span className="slider-value">{audioOpts.threshold}</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={255}
+              step={1}
+              value={audioOpts.threshold}
+              onChange={(e) => setAudio('threshold', Number(e.target.value))}
+              className="h-slider"
+            />
+          </div>
+
+          <div className="slider-row">
+            <div className="slider-header">
+              <span className="slider-label">gain</span>
+              <span className="slider-value">{audioOpts.gain.toFixed(1)}</span>
+            </div>
+            <input
+              type="range"
+              min={0.1}
+              max={10.0}
+              step={0.1}
+              value={audioOpts.gain}
+              onChange={(e) => setAudio('gain', Number(e.target.value))}
+              className="h-slider"
+            />
+          </div>
+
+          <div className="slider-row">
+            <div className="slider-header">
+              <span className="slider-label">offset</span>
+              <span className="slider-value">
+                {audioOpts.offset > 0 ? `+${audioOpts.offset}` : audioOpts.offset}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={-128}
+              max={128}
+              step={1}
+              value={audioOpts.offset}
+              onChange={(e) => setAudio('offset', Number(e.target.value))}
+              className="h-slider"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

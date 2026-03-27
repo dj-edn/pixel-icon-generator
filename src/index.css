@@ -397,6 +397,23 @@ body.light-mode .mic-btn--active {
   border-color: var(--border-strong);
 }
 
+/* ── audio sliders (mic-active only) ────────────────── */
+.audio-sliders-section {
+  display: flex;
+  flex-direction: column;
+  padding: 0 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.audio-section-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--fg-muted);
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  padding: 0.6rem 0 0;
+}
+
 /* ── drop zone ───────────────────────────────────────── */
 .drop-zone {
   border: 1px dashed var(--border);
@@ -499,6 +516,12 @@ canvas {
   }
 
   .sliders-section {
+    border: 1px solid var(--border);
+    border-top: none;
+    padding: 0 1rem;
+  }
+
+  .audio-sliders-section {
     border: 1px solid var(--border);
     border-top: none;
     padding: 0 1rem;

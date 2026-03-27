@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import {
   ProcessResult,
   RenderStyle,
+  AudioOpts,
   renderToCanvas,
   renderToCanvasWithAudio,
 } from '../utils/dithering'
@@ -11,13 +12,17 @@ interface PixelCanvasProps {
   style: RenderStyle
   micActive: boolean
   analyserRef: React.RefObject<AnalyserNode | null>
+  audioOpts: AudioOpts
 }
 
-export function PixelCanvas({ result, style, micActive, analyserRef }: PixelCanvasProps) {
+export function PixelCanvas({ result, style, micActive, analyserRef, audioOpts }: PixelCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
   const ampHistoryRef = useRef<number[]>([])
   const runningRef = useRef(false)
+  // Keep audioOpts current inside the RAF loop without restarting it
+  const audioOptsRef = useRef(audioOpts)
+  audioOptsRef.current = audioOpts
 
   // Normal render (no mic)
   useEffect(() => {
@@ -41,7 +46,6 @@ export function PixelCanvas({ result, style, micActive, analyserRef }: PixelCanv
     if (!micActive || !result || !canvas) {
       runningRef.current = false
       cancelAnimationFrame(rafRef.current)
-      // Re-render at current slider state when mic stops
       if (canvas && result) renderToCanvas(result, canvas, 8, style)
       return
     }
@@ -57,20 +61,29 @@ export function PixelCanvas({ result, style, micActive, analyserRef }: PixelCanv
       const data = new Uint8Array(analyser.frequencyBinCount)
       analyser.getByteFrequencyData(data)
 
-      // RMS amplitude 0–1
+      // RMS in 0–255 space
       let sum = 0
       for (let i = 0; i < data.length; i++) sum += data[i] * data[i]
-      const rms = Math.sqrt(sum / data.length) / 255
+      const rms = Math.sqrt(sum / data.length)
 
-      // 8-frame rolling average to smooth out jitter
+      // 8-frame rolling average
       const hist = ampHistoryRef.current
       hist.push(rms)
       if (hist.length > 8) hist.shift()
       const smoothed = hist.reduce((a, b) => a + b, 0) / hist.length
 
-      // Map smoothed amplitude → distortion params
-      const thresholdShift = smoothed * 60   // 0–60
-      const jitterPx = smoothed * 4          // 0–4 display pixels
+      // Signal chain: × gain → + offset → clamp → noise gate
+      const { threshold, gain, offset } = audioOptsRef.current
+      const gained = smoothed * gain
+      const shifted = gained + offset
+      const clamped = Math.max(0, Math.min(255, shifted))
+      const effective = clamped < threshold ? 0 : clamped
+
+      // Normalise to 0–1 for distortion mapping
+      const n = effective / 255
+
+      const thresholdShift = n * 60   // 0–60: dissolve
+      const jitterPx      = n * 4    // 0–4px: scanline tear
 
       renderToCanvasWithAudio(result, canvas, 8, style, thresholdShift, jitterPx)
 
@@ -79,7 +92,6 @@ export function PixelCanvas({ result, style, micActive, analyserRef }: PixelCanv
 
     rafRef.current = requestAnimationFrame(loop)
 
-    // Pause loop when tab is hidden to save battery
     const onVisibility = () => {
       if (document.hidden) {
         cancelAnimationFrame(rafRef.current)

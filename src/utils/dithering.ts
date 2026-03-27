@@ -7,6 +7,18 @@ export interface ProcessOptions {
   invert: boolean
 }
 
+export interface AudioOpts {
+  threshold: number  // 0–255: noise gate — below this, no distortion
+  gain: number       // 0.1–10: amplitude multiplier
+  offset: number     // -128–128: baseline shift added after gain
+}
+
+export const DEFAULT_AUDIO_OPTS: AudioOpts = {
+  threshold: 10,
+  gain: 1.0,
+  offset: 0,
+}
+
 export interface SubjectMask {
   data: Float32Array
   width: number
