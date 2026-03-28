@@ -18,6 +18,24 @@ interface ControlsProps {
   onAudioChange: (opts: AudioOpts) => void
 }
 
+function Slider({ min, max, step = 1, value, onChange }: {
+  min: number; max: number; step?: number; value: number; onChange: (v: number) => void
+}) {
+  return (
+    <div className="slider-touch">
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-slider"
+      />
+    </div>
+  )
+}
+
 export function Controls({ opts, style, onChange, onStyleChange, micActive, audioOpts, onAudioChange }: ControlsProps) {
   const set = <K extends keyof ProcessOptions>(key: K, val: ProcessOptions[K]) =>
     onChange({ ...opts, [key]: val })
@@ -52,14 +70,10 @@ export function Controls({ opts, style, onChange, onStyleChange, micActive, audi
             <span className="slider-label">Density</span>
             <span className="slider-value">{opts.gridSize}</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={GRID_SIZES.length - 1}
-            step={1}
+          <Slider
+            min={0} max={GRID_SIZES.length - 1}
             value={gridIndex === -1 ? 1 : gridIndex}
-            onChange={(e) => set('gridSize', GRID_SIZES[Number(e.target.value)])}
-            className="h-slider"
+            onChange={(v) => set('gridSize', GRID_SIZES[v])}
           />
         </div>
 
@@ -68,14 +82,7 @@ export function Controls({ opts, style, onChange, onStyleChange, micActive, audi
             <span className="slider-label">Threshold</span>
             <span className="slider-value">{opts.threshold}</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={255}
-            value={opts.threshold}
-            onChange={(e) => set('threshold', Number(e.target.value))}
-            className="h-slider"
-          />
+          <Slider min={0} max={255} value={opts.threshold} onChange={(v) => set('threshold', v)} />
         </div>
 
         <div className="slider-row">
@@ -83,14 +90,7 @@ export function Controls({ opts, style, onChange, onStyleChange, micActive, audi
             <span className="slider-label">Dither</span>
             <span className="slider-value">{opts.ditherIntensity}</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={opts.ditherIntensity}
-            onChange={(e) => set('ditherIntensity', Number(e.target.value))}
-            className="h-slider"
-          />
+          <Slider min={0} max={100} value={opts.ditherIntensity} onChange={(v) => set('ditherIntensity', v)} />
         </div>
       </div>
 
@@ -104,15 +104,7 @@ export function Controls({ opts, style, onChange, onStyleChange, micActive, audi
               <span className="slider-label">threshold</span>
               <span className="slider-value">{audioOpts.threshold}</span>
             </div>
-            <input
-              type="range"
-              min={0}
-              max={255}
-              step={1}
-              value={audioOpts.threshold}
-              onChange={(e) => setAudio('threshold', Number(e.target.value))}
-              className="h-slider"
-            />
+            <Slider min={0} max={255} value={audioOpts.threshold} onChange={(v) => setAudio('threshold', v)} />
           </div>
 
           <div className="slider-row">
@@ -120,15 +112,7 @@ export function Controls({ opts, style, onChange, onStyleChange, micActive, audi
               <span className="slider-label">gain</span>
               <span className="slider-value">{audioOpts.gain.toFixed(1)}</span>
             </div>
-            <input
-              type="range"
-              min={0.1}
-              max={10.0}
-              step={0.1}
-              value={audioOpts.gain}
-              onChange={(e) => setAudio('gain', Number(e.target.value))}
-              className="h-slider"
-            />
+            <Slider min={0.1} max={10.0} step={0.1} value={audioOpts.gain} onChange={(v) => setAudio('gain', v)} />
           </div>
 
           <div className="slider-row">
@@ -138,15 +122,7 @@ export function Controls({ opts, style, onChange, onStyleChange, micActive, audi
                 {audioOpts.offset > 0 ? `+${audioOpts.offset}` : audioOpts.offset}
               </span>
             </div>
-            <input
-              type="range"
-              min={-128}
-              max={128}
-              step={1}
-              value={audioOpts.offset}
-              onChange={(e) => setAudio('offset', Number(e.target.value))}
-              className="h-slider"
-            />
+            <Slider min={-128} max={128} value={audioOpts.offset} onChange={(v) => setAudio('offset', v)} />
           </div>
         </div>
       )}
